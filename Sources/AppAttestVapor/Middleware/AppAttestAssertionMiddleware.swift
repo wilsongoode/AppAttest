@@ -13,17 +13,17 @@ import AppAttestShared
 /// AppAttestAssertionMiddleware
 ///
 /// Middleware to verify AppAttest assertions are formatted correctly and completely. Compares assertion with information stored in Redis.
-struct AppAttestAssertionMiddleware: AsyncMiddleware {
+public struct AppAttestAssertionMiddleware: AsyncMiddleware {
     
     private let teamID: String
     private let bundleID: String
     
-    init(teamID: String, bundleID: String) {
+    public init(teamID: String, bundleID: String) {
         self.teamID = teamID
         self.bundleID = bundleID
     }
     
-    func respond(to request: Vapor.Request, chainingTo next: any Vapor.AsyncResponder) async throws -> Vapor.Response {
+    public func respond(to request: Vapor.Request, chainingTo next: any Vapor.AsyncResponder) async throws -> Vapor.Response {
         // Extract attestation from request header
         guard let assertionTokenBase64EncodedString = request.headers.first(name: "authentication") else {
             throw Abort(.unauthorized, reason: "No authentication header")
