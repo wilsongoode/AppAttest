@@ -11,17 +11,17 @@ import AppAttestShared
 /// Example AssertionController
 ///
 /// A Vapor controller for handling assertion requests. These are requests that are made to the server that contain an ``AppAttestShared/AssertionPayload`` object. The route handler will validate that the payload is
-struct AssertionController: RouteCollection {
+public struct ExampleAssertionController: RouteCollection {
     
     let teamID: String
     let bundleID: String
     
-    init(teamID: String, bundleID: String) {
+    public init(teamID: String, bundleID: String) {
         self.teamID = teamID
         self.bundleID = bundleID
     }
     
-    func boot(routes: any Vapor.RoutesBuilder) throws {
+    public func boot(routes: any Vapor.RoutesBuilder) throws {
         let attestedRoutes = routes.grouped(
             AppAttestAssertionMiddleware(
                 teamID: teamID,

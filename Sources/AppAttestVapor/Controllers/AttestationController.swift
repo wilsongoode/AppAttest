@@ -14,17 +14,17 @@ import AppAttestShared
 /// Example AttestationController
 ///
 /// This Vapor route collection handles attestation requests to the server's `attest/challenge` and `attest/verify` endpoints.
-struct AttestationController: RouteCollection {
+public struct AttestationController: RouteCollection {
     
     let teamID: String
     let bundleID: String
     
-    init(teamID: String, bundleID: String) {
+    public init(teamID: String, bundleID: String) {
         self.teamID = teamID
         self.bundleID = bundleID
     }
     
-    func boot(routes: any RoutesBuilder) throws {
+    public func boot(routes: any RoutesBuilder) throws {
         let appattest = routes.grouped("attest")
         
         appattest.get("challenge", use: getChallenge)
