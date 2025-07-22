@@ -44,7 +44,7 @@ public struct AttestationController: RouteCollection {
             req.logger.debug("Redis success saving challenge: \(redisChallengeKey)")
         } catch {
             req.logger.debug("Redis error saving challenge: \(error) \(error.localizedDescription)")
-            throw Abort(.internalServerError)
+            throw Abort(.internalServerError, reason: "Redis error saving challenge")
         }
         
         return ChallengeResponse(
@@ -55,7 +55,7 @@ public struct AttestationController: RouteCollection {
     
     func verifyAttestation(req: Request) async throws -> HTTPResponseStatus {
         guard let verifyRequest = try? req.content.decode(VerifyAttestationRequest.self) else {
-            throw Abort(.badRequest)
+            throw Abort(.badRequest, reason: "Invalid attestation request")
         }
         // Retrieve these values from the HTTP request
         // that your app sends to the server
@@ -69,7 +69,7 @@ public struct AttestationController: RouteCollection {
             redisChallengeKey,
             as: String.self
         ).get() else {
-            throw Abort(.badRequest)
+            throw Abort(.badRequest, reason: "Previous challenge not found")
         }
         guard let challengeData = Data(base64Encoded: challenge) else {
             req.logger.error("Invalid base64 encoding for challenge data")
