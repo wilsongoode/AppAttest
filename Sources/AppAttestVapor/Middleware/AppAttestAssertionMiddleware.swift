@@ -23,7 +23,15 @@ public struct AppAttestAssertionMiddleware: AsyncMiddleware {
         self.bundleID = bundleID
     }
     
+//    private func
+    
     public func respond(to request: Vapor.Request, chainingTo next: any Vapor.AsyncResponder) async throws -> Vapor.Response {
+        
+        // Check for override token to short-circuit assertion process
+        if request.authorizedAppAttestOverride() {
+            return try await next.respond(to: request)
+        }
+        
         // Extract attestation from request header
         guard let assertionTokenBase64EncodedString = request.headers.first(name: "authentication") else {
             throw Abort(.unauthorized, reason: "No authentication header")

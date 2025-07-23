@@ -52,6 +52,13 @@ public final class AppAttestClient: Sendable {
         self.userAgent = userAgent
     }
     
+    /// An optional token for overriding the AppAttest process.
+    ///
+    /// To use this feature, set the same token in the environment of both the app and the server.
+    /// This token works with AppAttestClient and AppAttestVapor.
+    /// If the token sent by AppAttestClient does not match the one configured for the server, the request fails.
+    private static let overrideToken: String? = ProcessInfo.processInfo.environment["APP_ATTEST_OVERRIDE_TOKEN"]
+    
     /// The bundle identifier for the client app.
     private static let bundleID: String = Bundle.main.bundleIdentifier!
     
@@ -208,6 +215,22 @@ public final class AppAttestClient: Sendable {
         }
     }
     
+    /// Uses a token from the environment to bypass AppAttest on a server running AppAttestVapor
+    ///
+    /// Requires matching tokens set for `APP_ATTEST_OVERRIDE_TOKEN` on both client and server.
+    private func getDataWithOverrideToken(
+        from url: URL,
+        requestPayload payload: Data,
+        token: String
+    ) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpMethod = "POST"
+        request.httpBody = payload
+        let (data, response) = try await dataForRequest(request)
+        return data
+    }
+    
     /// Applies AppAttest assertion to a request for data from the server
     ///
     /// - Parameters:
@@ -219,6 +242,15 @@ public final class AppAttestClient: Sendable {
         requestPayload payload: Data,
         maxRetryCount: Int = 1
     ) async throws -> Data {
+        
+        if let token = Self.overrideToken {
+            logger.debug("Using override token for App Attest.")
+            return try await getDataWithOverrideToken(
+                from: url,
+                requestPayload: payload,
+                token: token
+            )
+        }
         
         guard service.isSupported else {
             logger.error("App Attest is not supported on this device.")
