@@ -1,5 +1,5 @@
 //
-//  AssertionController.swift
+//  ExampleAssertionController.swift
 //  AppAttestVapor
 //
 //  Created by Wilson Goode on 7/21/25.
@@ -8,9 +8,11 @@
 import Vapor
 import AppAttestShared
 
-/// Example AssertionController
+/// An example of a Vapor RouteCollection that handles AppAttest assertions and their payloads
 ///
-/// A Vapor controller for handling assertion requests. These are requests that are made to the server that contain an ``AppAttestShared/AssertionPayload`` object. The route handler will validate that the payload is
+/// A Vapor controller for handling assertion requests. These are requests that are made to the server that contain an ``AppAttestShared/AssertionPayload`` object. The route handler uses the ``AppAttestVapor/AppAttestAssertionMiddleware``.
+///
+/// Data payloads are decoded using the `Request.decodeAssertionPayload` method. All you need to care about is your custom payload type, such as a `Codable` or `Content` struct.
 public struct ExampleAssertionController: RouteCollection {
     
     let teamID: String
