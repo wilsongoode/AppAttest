@@ -40,7 +40,7 @@ extension Request {
     /// Decodes an `AssertionPayload` and extracts the content of the specified type.
     ///
     /// If the request contains an override token to bypass AppAttest, the content is decoded directly.
-    func decodeAssertionPayload<T: Decodable>(_ type: T.Type) throws -> T {
+    public func decodeAssertionPayload<T: Decodable>(_ type: T.Type) throws -> T {
         if self.isAppAttestOverrideAuthorized {
             guard let payload = try? self.content.decode(T.self) else {
                 throw Abort(.badRequest, reason: "Invalid request content")
