@@ -32,12 +32,12 @@ public struct AppAttestAssertionMiddleware: AsyncMiddleware {
             return try await next.respond(to: request)
         }
         
-        // Extract attestation from request header
-        guard let assertionTokenBase64EncodedString = request.headers.first(name: "authentication") else {
-            throw Abort(.unauthorized, reason: "No authentication header")
+        // Extract assertion from request header
+        guard let assertionTokenBase64EncodedString = request.headers.first(name: AppAttestHTTPHeaders.appAttestAssertion) else {
+            throw Abort(.unauthorized, reason: "No \(AppAttestHTTPHeaders.appAttestAssertion) header")
         }
         guard let assertionToken = Data(base64Encoded: assertionTokenBase64EncodedString) else {
-            throw Abort(.unauthorized, reason: "Invalid authentication header")
+            throw Abort(.unauthorized, reason: "Invalid \(AppAttestHTTPHeaders.appAttestAssertion) header")
         }
         
         // MARK: - Decode assertion from assertion header

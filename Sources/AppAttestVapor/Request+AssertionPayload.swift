@@ -32,7 +32,7 @@ extension Request {
     }
     
     func authorizedAppAttestOverride() -> Bool {
-        if let providedToken = self.headers.first(name: .authorization),
+        if let providedToken = self.headers.first(name: AppAttestHTTPHeaders.appAttestBearerAuthorization),
            let overrideToken = Environment.get("APP_ATTEST_OVERRIDE_TOKEN"),
            providedToken == "Bearer \(overrideToken)" {
             self.logger.debug("Skipping AppAttest validation due to override token.")

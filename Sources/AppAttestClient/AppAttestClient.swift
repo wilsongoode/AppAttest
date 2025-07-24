@@ -224,10 +224,10 @@ public final class AppAttestClient: Sendable {
         token: String
     ) async throws -> Data {
         var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: AppAttestHTTPHeaders.appAttestBearerAuthorization)
         request.httpMethod = "POST"
         request.httpBody = payload
-        let (data, response) = try await dataForRequest(request)
+        let (data, _) = try await dataForRequest(request)
         return data
     }
     
@@ -284,7 +284,7 @@ public final class AppAttestClient: Sendable {
                 )
                 request.setValue(
                     assertion,
-                    forHTTPHeaderField: "authentication"
+                    forHTTPHeaderField: AppAttestHTTPHeaders.appAttestAssertion
                 )
                 request.cachePolicy = .useProtocolCachePolicy
                 
