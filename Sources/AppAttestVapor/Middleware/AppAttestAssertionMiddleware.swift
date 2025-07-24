@@ -28,7 +28,7 @@ public struct AppAttestAssertionMiddleware: AsyncMiddleware {
     public func respond(to request: Vapor.Request, chainingTo next: any Vapor.AsyncResponder) async throws -> Vapor.Response {
         
         // Check for override token to short-circuit assertion process
-        if request.authorizedAppAttestOverride() {
+        if request.isAppAttestOverrideAuthorized {
             return try await next.respond(to: request)
         }
         

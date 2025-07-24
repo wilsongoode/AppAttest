@@ -9,11 +9,39 @@ import Vapor
 import AppAttestShared
 
 extension Request {
+    
+    private struct AppAttestOverrideKey: StorageKey {
+        typealias Value = Bool
+    }
+
+    /// Returns a boolean value that indicates if the request contains an override token that bypasses AppAttest validation.
+    var isAppAttestOverrideAuthorized: Bool {
+        if let storedValue = self.storage[AppAttestOverrideKey.self] {
+            return storedValue
+        }
+        
+        let result = self.authorizedAppAttestOverride()
+        self.storage[AppAttestOverrideKey.self] = result
+        return result
+    }
+
+    /// Checks if the request contains an override token to bypass AppAttest validation.
+    private func authorizedAppAttestOverride() -> Bool {
+        if let providedToken = self.headers.first(name: AppAttestHTTPHeaders.appAttestBearerAuthorization),
+           let overrideToken = Environment.get("APP_ATTEST_OVERRIDE_TOKEN"),
+           providedToken == "Bearer \(overrideToken)" {
+            self.logger.debug("Skipping AppAttest validation due to override token.")
+            return true
+        } else {
+            return false
+        }
+    }
+    
     /// Decodes an `AssertionPayload` and extracts the content of the specified type.
     ///
     /// If the request contains an override token to bypass AppAttest, the content is decoded directly.
     func decodeAssertionPayload<T: Decodable>(_ type: T.Type) throws -> T {
-        if self.authorizedAppAttestOverride() {
+        if self.isAppAttestOverrideAuthorized {
             guard let payload = try? self.content.decode(T.self) else {
                 throw Abort(.badRequest, reason: "Invalid request content")
             }
@@ -29,16 +57,5 @@ extension Request {
         }
 
         return decodedContent
-    }
-    
-    func authorizedAppAttestOverride() -> Bool {
-        if let providedToken = self.headers.first(name: AppAttestHTTPHeaders.appAttestBearerAuthorization),
-           let overrideToken = Environment.get("APP_ATTEST_OVERRIDE_TOKEN"),
-           providedToken == "Bearer \(overrideToken)" {
-            self.logger.debug("Skipping AppAttest validation due to override token.")
-            return true
-        } else {
-            return false
-        }
     }
 }
