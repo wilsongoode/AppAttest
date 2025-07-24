@@ -34,13 +34,13 @@ public struct ExampleAssertionController: RouteCollection {
         }
     }
     
+    struct EmptyPayload: Decodable {}
+
     func hello(req: Request) async throws -> String {
-        guard let _ = try? req.content.decode(AssertionPayload.self) else {
-            throw Abort(.badRequest, reason: "Invalid assertion payload")
-        }
+        _ = try req.decodeAssertionPayload(EmptyPayload.self)
         return "Hello, world! (attested)"
     }
-    
+
     struct ExampleRequest: Content {
         let name: String
         let age: Int
@@ -48,13 +48,7 @@ public struct ExampleAssertionController: RouteCollection {
     
     /// Example route handler that takes an ExampleRequest wrapped in an ``AppAttestShared/AssertionPayload`` object
     func example(req: Request) async throws -> String {
-        guard let assertionPayload = try? req.content.decode(AssertionPayload.self) else {
-            throw Abort(.badRequest, reason: "Invalid assertion payload")
-        }
-        
-        guard let exampleRequest = try? JSONDecoder().decode(ExampleRequest.self, from: assertionPayload.payload) else {
-            throw Abort(.badRequest, reason: "Invalid example request")
-        }
+        let exampleRequest = try req.decodeAssertionPayload(ExampleRequest.self)
         req.logger.debug("Example request: \(exampleRequest)")
         return "Hello, \(exampleRequest.name)! You are \(exampleRequest.age) years old."
     }
