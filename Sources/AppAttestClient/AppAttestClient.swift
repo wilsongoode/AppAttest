@@ -225,6 +225,7 @@ public final class AppAttestClient: Sendable {
     ) async throws -> Data {
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: AppAttestHTTPHeaders.appAttestBearerAuthorization)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpMethod = "POST"
         request.httpBody = payload
         let (data, _) = try await dataForRequest(request)
