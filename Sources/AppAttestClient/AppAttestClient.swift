@@ -20,6 +20,11 @@ public enum AppAttestClientError: Error {
     case retryCountExceeded
 }
 
+public enum AppAttestEnvironment: String {
+    case development
+    case production
+}
+
 /// AppAttestClient
 ///
 /// A client to connect to a server running the ``AppAttest`` API as implemented in ``AppAttestVapor``.
@@ -41,15 +46,21 @@ public final class AppAttestClient: Sendable {
     /// The user agent to use when making requests to the server.
     private let userAgent: String
     
+    /// The AppAttest environment (either `development` or `production`)
+    private let environment: AppAttestEnvironment
+    
     /// - Parameters:
     ///     - baseURL: The base URL of the server running the AppAttest API.
     ///     - userAgent: The user agent to use when making requests to the server.
+    ///     - environment: Whether to use the development or production AppAttest key.
     public init(
         baseURL: URL,
         userAgent: String,
+        environment: AppAttestEnvironment = .production
     ) {
         self.baseURL = baseURL
         self.userAgent = userAgent
+        self.environment = environment
     }
     
     /// An optional token for overriding the AppAttest process.
@@ -63,7 +74,9 @@ public final class AppAttestClient: Sendable {
     private static let bundleID: String = Bundle.main.bundleIdentifier!
     
     /// The key used to store the AppAttest key in the user defaults.
-    private let userDefaultsKey: String = "appAttest.\(bundleID)"
+    private var userDefaultsKey: String {
+        "appAttest.\(environment.rawValue).\(Self.bundleID)"
+    }
     
     private let logger: Logger = Logger(subsystem: bundleID, category: "AppAttestClient")
     
