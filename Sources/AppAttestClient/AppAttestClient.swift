@@ -20,7 +20,7 @@ public enum AppAttestClientError: Error {
     case retryCountExceeded
 }
 
-public enum AppAttestEnvironment: String {
+public enum AppAttestEnvironment: String, Sendable {
     case development
     case production
 }
