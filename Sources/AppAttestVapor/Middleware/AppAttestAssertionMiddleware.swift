@@ -116,14 +116,12 @@ public struct AppAttestAssertionMiddleware: AsyncMiddleware {
                 throw Abort(.internalServerError, reason: "Redis error saving assertion result")
             }
             
-            return try await next.respond(to: request)
-            
-            
         } catch {
           // Handle the error
             request.logger.error("Error verifying assertion: \(error) \(error.localizedDescription)")
             throw Abort(.internalServerError, reason: "Assertion verification failed")
         }
         
+        return try await next.respond(to: request)
     }
 }
