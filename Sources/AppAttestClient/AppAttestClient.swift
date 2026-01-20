@@ -168,11 +168,11 @@ public final class AppAttestClient: Sendable {
         throw AppAttestClientError.attestVerificationFailed
     }
     
-    /// Creates an assertion for the provided payload.
+    /// Creates an assertion for the provided payload bytes.
     /// - Parameters:
-    ///   - payload: The request payload (encoded with JSONEncoder)
-    ///   - challengeID: The challenge ID to use for the assertion
-    private func createAssertion(_ payload: AssertionPayload, challengeID: UUID) async throws -> String {
+    ///   - body: The raw request body bytes to be hashed and signed.
+    ///   - challengeID: The challenge ID to use for the assertion.
+    private func createAssertion(with body: Data, challengeID: UUID) async throws -> String {
         var keyID = self.readKey()
         
         if keyID == nil {
@@ -185,8 +185,8 @@ public final class AppAttestClient: Sendable {
         
         logger.debug("createAssertion: Using keyID: \(keyID)")
         
-        let encodedPayload = try JSONEncoder().encode(payload)
-        let hash = Data(SHA256.hash(data: encodedPayload))
+        // Use the exact bytes of the body to generate the hash.
+        let hash = Data(SHA256.hash(data: body))
 
         do {
             let assertion = try await service.generateAssertion(keyID, clientDataHash: hash)
@@ -283,11 +283,14 @@ public final class AppAttestClient: Sendable {
                     payload: payload,
                     challenge: challengeResponse.challenge
                 )
+                
+                // Encode the payload ONCE to ensure the bytes signed match the bytes sent.
+                let body = try JSONEncoder().encode(assertionPayload)
+                
                 let assertion = try await createAssertion(
-                    assertionPayload,
+                    with: body,
                     challengeID: challengeResponse.challengeID
                 )
-                let body = try JSONEncoder().encode(assertionPayload)
                 
                 var request = URLRequest(url: url)
                 request.httpMethod = "POST"
