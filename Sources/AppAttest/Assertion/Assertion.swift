@@ -72,7 +72,7 @@ extension Assertion {
         
         // 2. Concatenate authenticatorData and clientDataHash
         // and apply a SHA256 hash over the result to form nonce.
-        let nonce = Data(SHA256.hash(data: authenticatorData.bytes + clientDataHash))
+        let nonce = SHA256.hash(data: authenticatorData.bytes + clientDataHash)
         
         // 3. Use the public key that you stored from the attestation object
         // to verify that the assertion’s signature is valid for nonce.
