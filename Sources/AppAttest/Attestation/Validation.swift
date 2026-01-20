@@ -75,7 +75,7 @@ extension Attestation {
     /// (authData from the decoded object).
     /// 3. Generate a new SHA256 hash of the composite item to create nonce.
     func nonce(for challenge: Data) -> SHA256.Digest {
-        let clientDataHash = Data(SHA256.hash(data: challenge))
+        let clientDataHash = SHA256.hash(data: challenge)
         return SHA256.hash(data: authenticatorData.bytes + clientDataHash)
     }
     
