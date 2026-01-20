@@ -63,7 +63,7 @@ extension Assertion {
         clientData: Data,
         publicKey: P256.Signing.PublicKey,
         appID: String,
-        previousCounter: Int?, // TODO: Consider renaming to storedCounter
+        previousCounter: Int?,
         receivedChallenge: Data,
         storedChallenge: Data
     ) throws {
@@ -77,14 +77,17 @@ extension Assertion {
         // 3. Use the public key that you stored from the attestation object
         // to verify that the assertion’s signature is valid for nonce.
         let signature = try P256.Signing.ECDSASignature(derRepresentation: self.signature)
+        // Passing 'nonce' as a Digest (not Data) prevents CryptoKit from hashing it again.
         guard publicKey.isValidSignature(signature, for: nonce) else {
             throw ValidationError.invalidSignature
         }
         
         // 4. Compute the SHA256 hash of the client’s App ID, and verify
         // that it matches the RP ID in the authenticator data.
-        let appIDHash = SHA256.hash(data: appID.data(using: .utf8)!)
-        // TODO: Avoid force unwrap.
+        guard let appIDData = appID.data(using: .utf8) else {
+            throw ValidationError.invalidAppID
+        }
+        let appIDHash = SHA256.hash(data: appIDData)
         guard authenticatorData.rpID == Data(appIDHash) else {
             throw ValidationError.invalidAppID
         }
@@ -92,12 +95,13 @@ extension Assertion {
         // 5. Verify that the authenticator data’s counter value is greater
         // than the value from the previous assertion, or greater than 0
         // on the first assertion.
+        let currentCounter = Int(authenticatorData.counter)
         if let previousCounter = previousCounter {
-            guard authenticatorData.counter > previousCounter else {
+            guard currentCounter > previousCounter else {
                 throw ValidationError.invalidCounter
             }
         } else {
-            guard authenticatorData.counter > 0 else {
+            guard currentCounter > 0 else {
                 throw ValidationError.invalidCounter
             }
         }
