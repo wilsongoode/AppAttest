@@ -113,11 +113,3 @@ public struct AttestationController: RouteCollection {
         }
     }
 }
-
-
-
-
-
-
-
-
