@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Crypto
 
 /// Authenticator data as specified by the
 /// [Web Authentication](https://www.w3.org/TR/webauthn/#sec-authenticator-data) specification.
@@ -14,19 +15,14 @@ struct AuthenticatorData: Equatable {
     
     enum Error: Swift.Error {
         case invalidAAGUID
+        case invalidLength
     }
     
     init(bytes: Data) throws {
-        self.bytes = bytes
-        
-        // TODO: Consider moving this step elsewhere,
-        // since AuthenticatorData is still valid without
-        // the Apple-specific AAGUID.
-        if let aaguid = AAGUID(bytes: bytes[37..<53]) {
-            self.aaguid = aaguid
-        } else {
-            throw Error.invalidAAGUID
+        guard bytes.count >= 37 else {
+            throw Error.invalidLength
         }
+        self.bytes = bytes
     }
     
     /// A hash of your app’s App ID, which is the concatenation of your 10-digit team identifier,
@@ -36,21 +32,23 @@ struct AuthenticatorData: Equatable {
     }
     
     /// The number of times your app used the attested key to sign an assertion.
-    var counter: Int32 {
+    var counter: UInt32 {
         bytes[33..<37].reduce(0) { value, byte in
-            value << 8 | Int32(byte) // UInt32 ?
+            value << 8 | UInt32(byte)
         }
     }
     
-    /// An App Attest-specific constant that indicates whether the attested key belongs
-    /// to the development or production environment. Apps generate keys using the former
-    /// during development, and the latter after distribution, as described in
-    ///[com.apple.developer.devicecheck.appattest-environment](https://developer.apple.com/documentation/bundleresources/entitlements/com_apple_developer_devicecheck_appattest-environment).
+    /// Indicates whether attested credential data is included.
+    var hasAttestedCredentialData: Bool {
+        (bytes[32] & 0x40) != 0
+    }
     
-    /// 8. Verify that the authenticator data’s aaguid field is either appattestdevelop if operating
-    /// in the development environment, or appattest followed by seven 0x00 bytes if operating
-    /// in the production environment.
-    let aaguid: AAGUID
+    /// An App Attest-specific constant that indicates whether the attested key belongs
+    /// to the development or production environment.
+    var aaguid: AAGUID? {
+        guard hasAttestedCredentialData, bytes.count >= 53 else { return nil }
+        return AAGUID(bytes: bytes[37..<53])
+    }
     
     enum AAGUID: String, CaseIterable {
         case appAttest = "appattest"
@@ -68,9 +66,7 @@ struct AuthenticatorData: Equatable {
         var bytes: Data {
             let data = rawValue.data(using: .utf8)!
             switch self {
-            case .appAttestDevelop:
-                return data
-            case .appAttestSandbox:
+            case .appAttestDevelop, .appAttestSandbox:
                 return data
             case .appAttest:
                 return data + Data(repeatElement(0x00, count: 7))
@@ -78,14 +74,43 @@ struct AuthenticatorData: Equatable {
         }
     }
     
-    var credentialID: Data {
+    /// The credential identifier, if present in the attested credential data.
+    var credentialID: Data? {
+        guard hasAttestedCredentialData, bytes.count >= 55 else { return nil }
         // Retrieve the two bytes that encode the length
         // of the credentialID as a UInt16.
         let length = bytes[53..<55].reduce(0) { value, byte in
             value << 8 | UInt16(byte)
-        } // TODO: Refactor this into a generic function.
-        return bytes[55..<(55 + length)]
+        }
+        let end = 55 + Int(length)
+        guard bytes.count >= end else { return nil }
+        return bytes[55..<end]
     }
 }
 
-// TODO: Add custom decodable conformance.
+extension AuthenticatorData {
+    /// Verifies that the RP ID hash matches the SHA256 hash of the provided App ID.
+    func verifyAppID(_ appID: String) -> Bool {
+        guard let appIDData = appID.data(using: .utf8) else { return false }
+        let hash = SHA256.hash(data: appIDData)
+        return rpID == Data(hash)
+    }
+    
+    /// Verifies that the counter is valid for the given context.
+    ///
+    /// For **attestations**, the counter must be 0.
+    /// For **assertions**, the counter must be greater than the previous counter (or greater than 0 if no previous counter is provided).
+    func verifyCounter(isAttestation: Bool, previous: Int? = nil) -> Bool {
+        let current = Int(self.counter)
+        if isAttestation {
+            return current == 0
+        } else {
+            return current > (previous ?? 0)
+        }
+    }
+    
+    /// Verify that the authenticator data’s credentialId field is the same as the key identifier.
+    func verifyKeyID(_ keyID: Data) -> Bool {
+        return credentialID == keyID
+    }
+}

@@ -13,32 +13,11 @@ struct Assertion {
     let signature: Data
     let authenticatorData: AuthenticatorData
     
-    // TODO: Consider renaming.
     init(cbor data: Data) throws {
         let decoder = CodableCBORDecoder()
         let decoded = try decoder.decode(CodableCBOR.self, from: data)
         signature = decoded.signature
-        authenticatorData = AuthenticatorData(bytes: decoded.authenticatorData)
-        // TODO: Validate authenticator data before completing initialization.
-    }
-}
-
-extension Assertion {
-    struct AuthenticatorData {
-        let bytes: Data
-        
-        /// A hash of your app’s App ID, which is the concatenation of your 10-digit team identifier,
-        /// a period, and your app’s CFBundleIdentifier value.
-        var rpID: Data {
-            bytes[0..<32]
-        }
-        
-        /// The number of times your app used the attested key to sign an assertion.
-        var counter: Int32 {
-            bytes[33..<37].reduce(0) { value, byte in
-                value << 8 | Int32(byte) // UInt32 ?
-            }
-        }
+        authenticatorData = try AuthenticatorData(bytes: decoded.authenticatorData)
     }
 }
 
@@ -51,14 +30,12 @@ extension Assertion {
 
 extension Assertion {
     enum ValidationError: Error {
-        case invalidSignature // or invalidKey
-        case invalidAppID
+        case invalidSignature
+        case invalidAppIDHash
         case invalidCounter
         case invalidClientData
-        // TODO: Make these errors more specific.
     }
     
-    // TODO: Consider splitting this function into smaller functions.
     func verify(
         clientData: Data,
         publicKey: P256.Signing.PublicKey,
@@ -67,49 +44,49 @@ extension Assertion {
         receivedChallenge: Data,
         storedChallenge: Data
     ) throws {
-        // 1. Compute clientDataHash as the SHA256 hash of clientData.
+        // 1 & 2.
+        let nonce = self.nonce(clientData: clientData)
+        
+        // 3.
+        try verifySignature(nonce: nonce, publicKey: publicKey)
+        
+        // 4.
+        guard authenticatorData.verifyAppID(appID) else {
+            throw ValidationError.invalidAppIDHash
+        }
+
+        // 5.
+        guard authenticatorData.verifyCounter(isAttestation: false, previous: previousCounter) else {
+            throw ValidationError.invalidCounter
+        }
+
+        // 6.
+        try verify(receivedChallenge: receivedChallenge, storedChallenge: storedChallenge)
+    }
+    
+    /// 1. Compute clientDataHash as the SHA256 hash of clientData.
+    /// 2. Concatenate authenticatorData and clientDataHash
+    /// and apply a SHA256 hash over the result to form nonce.
+    func nonce(clientData: Data) -> SHA256.Digest {
         let clientDataHash = SHA256.hash(data: clientData)
-        
-        // 2. Concatenate authenticatorData and clientDataHash
-        // and apply a SHA256 hash over the result to form nonce.
-        let nonce = SHA256.hash(data: authenticatorData.bytes + clientDataHash)
-        
-        // 3. Use the public key that you stored from the attestation object
-        // to verify that the assertion’s signature is valid for nonce.
-        let signature = try P256.Signing.ECDSASignature(derRepresentation: self.signature)
-        // Passing 'nonce' as a Digest (not Data) prevents CryptoKit from hashing it again.
-        guard publicKey.isValidSignature(signature, for: nonce) else {
+        return SHA256.hash(data: authenticatorData.bytes + clientDataHash)
+    }
+    
+    /// 3. Use the public key that you stored from the attestation object
+    /// to verify that the assertion’s signature is valid for nonce.
+    func verifySignature(nonce: SHA256.Digest, publicKey: P256.Signing.PublicKey) throws {
+        let ecdsaSignature = try P256.Signing.ECDSASignature(derRepresentation: self.signature)
+        guard publicKey.isValidSignature(ecdsaSignature, for: nonce) else {
             throw ValidationError.invalidSignature
         }
-        
-        // 4. Compute the SHA256 hash of the client’s App ID, and verify
-        // that it matches the RP ID in the authenticator data.
-        guard let appIDData = appID.data(using: .utf8) else {
-            throw ValidationError.invalidAppID
-        }
-        let appIDHash = SHA256.hash(data: appIDData)
-        guard authenticatorData.rpID == Data(appIDHash) else {
-            throw ValidationError.invalidAppID
-        }
-
-        // 5. Verify that the authenticator data’s counter value is greater
-        // than the value from the previous assertion, or greater than 0
-        // on the first assertion.
-        let currentCounter = Int(authenticatorData.counter)
-        if let previousCounter = previousCounter {
-            guard currentCounter > previousCounter else {
-                throw ValidationError.invalidCounter
-            }
-        } else {
-            guard currentCounter > 0 else {
-                throw ValidationError.invalidCounter
-            }
-        }
-
-        // 6. Verify that the challenge embedded in the client data matches
-        // the earlier challenge to the client.
+    }
+    
+    /// 6. Verify that the challenge used to generate the clientDataHash
+    /// matches the challenge you sent to the app.
+    func verify(receivedChallenge: Data, storedChallenge: Data) throws {
         guard receivedChallenge == storedChallenge else {
             throw ValidationError.invalidClientData
         }
     }
 }
+

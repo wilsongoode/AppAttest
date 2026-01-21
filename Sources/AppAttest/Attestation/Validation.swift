@@ -40,10 +40,14 @@ extension Attestation {
         }
         
         // 6.
-        try authenticatorData.verify(appID: appID)
+        guard authenticatorData.verifyAppID(appID) else {
+            throw ValidationError.invalidAppIDHash
+        }
         
         // 7.
-        try authenticatorData.verifyCounter()
+        guard authenticatorData.verifyCounter(isAttestation: true) else {
+            throw ValidationError.invalidCounter
+        }
         
         // 8.
         // Already checked aaguid.
@@ -51,7 +55,9 @@ extension Attestation {
         // e.g. verifyAAGUID or extractAAGUID.
         
         // 9.
-        try authenticatorData.verifyKeyID(keyID)
+        guard authenticatorData.verifyKeyID(keyID) else {
+            throw ValidationError.invalidCredentialID
+        }
     }
     
     /// 1. Verify that the x5c array contains the intermediate and leaf certificates for App Attest,
@@ -95,44 +101,5 @@ extension Attestation {
         }
         let hash = SHA256.hash(data: publicKey)
         return hash == keyID
-    }
-}
-
-extension AuthenticatorData {
-    /// 6. Compute the SHA256 hash of your app’s App ID, and verify that this is the same
-    /// as the authenticator data’s RP ID hash.
-    func verify(appID: String) throws {
-        let hash = appID.data(using: .utf8)
-            .map { SHA256.hash(data: $0) }
-            .map { Data($0) }
-        guard rpID == hash else {
-            throw Attestation.ValidationError.invalidAppIDHash
-        }
-    }
-    
-    /// 7.  Verify that the authenticator data’s counter field equals 0.
-    func verifyCounter() throws {
-        guard counter == 0 else {
-            throw Attestation.ValidationError.invalidCounter
-        }
-    }
-    
-    /// 8. Verify that the authenticator data’s aaguid field is either appattestdevelop if operating
-    /// in the development environment, or appattest followed by seven 0x00 bytes if operating
-    /// in the production environment.
-    // AuthenticatorData.init(bytes:) already casts the raw bytes
-    // in the aaguid field to an AAGUID enum, ensuring that the value
-    // is valid.
-    // Because the aaguid is specific to Apple, we could *not*
-    // declare it as a property on the authenticator data,
-    // and instead compute it when performing these checks.
-    
-    /// 9. Verify that the authenticator data’s credentialId field is the same as the key identifier.
-    // TODO: Remove this method and just make this comparison
-    // inside the larger function.
-    func verifyKeyID(_ keyID: Data) throws {
-        guard credentialID == keyID else {
-            throw Attestation.ValidationError.invalidCredentialID
-        }
     }
 }
