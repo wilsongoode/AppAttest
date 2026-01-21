@@ -76,7 +76,7 @@ extension Assertion {
     /// to verify that the assertion’s signature is valid for nonce.
     func verifySignature(nonce: SHA256.Digest, publicKey: P256.Signing.PublicKey) throws {
         let ecdsaSignature = try P256.Signing.ECDSASignature(derRepresentation: self.signature)
-        guard publicKey.isValidSignature(ecdsaSignature, for: nonce) else {
+        guard publicKey.isValidSignature(ecdsaSignature, for: Data(nonce)) else {
             throw ValidationError.invalidSignature
         }
     }
