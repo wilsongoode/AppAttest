@@ -46,6 +46,17 @@ struct AssertionTests {
         #expect(authData.rpID == expectedHash, "Computed RP ID hash does not match AuthenticatorData. Check for typos in App ID or Team ID.")
     }
     
+    @Test("3. Nonce Reconstruction Check")
+    func testNonceReconstruction() throws {
+        let assertion = try Assertion(cbor: sample.assertion)
+        let nonce = assertion.nonce(clientData: sample.clientData)
+        
+        let sig = try P256.Signing.ECDSASignature(derRepresentation: assertion.signature)
+        let key = try P256.Signing.PublicKey(x963Representation: sample.publicKey)
+        
+        #expect(key.isValidSignature(sig, for: Data(nonce)), "Signature verification failed for the reconstructed nonce.")
+    }
+    
     @Test("4. Signature Parsing Sanity")
     func testSignatureParsing() throws {
         let assertion = try Assertion(cbor: sample.assertion)
@@ -149,5 +160,33 @@ struct AssertionTests {
                 storedChallenge: differentChallenge
             )
         }
+    }
+    
+    @Test("Ensure public key encoding occurs correctly", arguments: [
+        AssertionSample.iOS14_3,
+        AssertionSample.iOS14_2,
+    ])
+    func testPublicKeyEncoding(sample longSample: AssertionSample.Long) throws {
+//        let longSample = AssertionSample.iOS14_3
+        let shortSample = longSample.encoded
+        
+        // 1. Decode the Base64 string from the long sample.
+        // It must be decoded from Base64 because publicKeyX963 is a Base64-encoded string.
+        let longKeyData = try #require(Data(base64Encoded: longSample.publicKeyX963), "The public key in the long sample must be valid Base64.")
+        
+        // 2. Compare the decoded data to the short sample data.
+        #expect(longKeyData == shortSample.publicKey, "Decoded long sample key data must match short sample public key data.")
+        
+        // 3. Initialize PublicKey objects from both sources.
+        let longPublicKey = try P256.Signing.PublicKey(x963Representation: longKeyData)
+        let shortPublicKey = try P256.Signing.PublicKey(x963Representation: shortSample.publicKey)
+        
+        // 4. Verify that the resulting PublicKeys are identical.
+        // P256.Signing.PublicKey is not Equatable, so we compare their X9.63 representations.
+        #expect(longPublicKey.x963Representation == shortPublicKey.x963Representation, "X9.63 representations must be identical.")
+        
+        // Diagnostic output
+        print("Original X9.63 Public Key (Base64):", longSample.publicKeyX963)
+        print("Decoded Public Key (X9.63 Hex):", shortPublicKey.x963Representation.map { String(format: "%02x", $0) }.joined())
     }
 }
